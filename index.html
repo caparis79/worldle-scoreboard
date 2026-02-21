@@ -100,11 +100,13 @@
 </style>
 </head>
 <body>
+
 <div id="loading-screen">
   <div style="font-size:36px">🌍</div>
   <div class="spinner"></div>
   <div style="color:#555;font-size:14px;font-style:italic">Loading scoreboard…</div>
 </div>
+
 <div id="error-screen">
   <div class="err-box">
     <div style="font-size:32px;margin-bottom:12px">⚠️</div>
@@ -114,7 +116,9 @@
     <button class="btn btn-gold" style="width:100%" onclick="location.reload()">Try again</button>
   </div>
 </div>
+
 <div class="saving-indicator" id="saving-indicator">Saving…</div>
+
 <div id="app">
   <header>
     <div class="header-inner">
@@ -143,6 +147,7 @@
         </table>
       </div>
     </div>
+
     <div id="tab-enter" class="panel">
       <span class="paste-label">Paste a result</span>
       <p class="paste-hint">After finishing Worldle tap <strong style="color:#aaa">Share</strong> and paste below.<br>Looks like: <span style="font-family:monospace;color:#777">#Worldle #834 3/6 (100%)</span></p>
@@ -159,7 +164,9 @@
         <button class="btn btn-ghost" id="clear-btn" onclick="clearPaste()" style="display:none">Clear</button>
         <span class="save-msg" id="save-msg"></span>
       </div>
+
       <div class="divider"><div class="divider-line"></div><span class="divider-text">or enter manually</span><div class="divider-line"></div></div>
+
       <div style="margin-bottom:16px">
         <label style="color:#888;font-size:13px;display:block;margin-bottom:8px">Date:</label>
         <input type="date" id="entry-date" style="max-width:200px">
@@ -173,7 +180,9 @@
       </div>
       <p class="hint">Entering a score overwrites any existing score for that date.</p>
     </div>
+
     <div id="tab-history" class="panel"><div id="history-container"></div></div>
+
     <div id="tab-players" class="panel">
       <p class="players-intro">Add or remove players. Changes sync for everyone.</p>
       <div class="card" style="max-width:400px" id="players-list"></div>
@@ -184,160 +193,299 @@
     </div>
   </main>
 </div>
+
 <script>
 const API_KEY = '$2a$10$MoG9a9LRm7BHc6LOJa1UL.NERKUc618dT9vLCu6a941hu932Agymy';
 const BIN_ID_KEY = 'worldle_bin_id';
 const BASE = 'https://api.jsonbin.io/v3';
+
 let binId = localStorage.getItem(BIN_ID_KEY);
 let state = { players: [], scores: {} };
 let saveTimer = null;
+
 const SCORE_OPTIONS = ["1/6","2/6","3/6","4/6","5/6","6/6","X"];
 function scoreVal(s) { return s==="X"?7:parseInt(s); }
 function scoreColor(s) { return {"1/6":"#22c55e","2/6":"#86efac","3/6":"#fbbf24","4/6":"#f97316","5/6":"#ef4444","6/6":"#dc2626","X":"#6b7280"}[s]||"#444"; }
 function pad(n) { return String(n).padStart(2,'0'); }
 function localToday() { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
 function safeid(s) { return s.replace(/[^a-zA-Z0-9]/g,'_'); }
-function showApp() { document.getElementById('loading-screen').style.display='none'; document.getElementById('app').style.display='block'; renderLeaderboard(); }
-function showError(msg) { document.getElementById('loading-screen').style.display='none'; document.getElementById('err-detail').textContent=msg; document.getElementById('error-screen').style.display='flex'; }
-function showSaving(on) { document.getElementById('saving-indicator').classList.toggle('show',on); }
+
+function showApp() {
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+  renderLeaderboard();
+}
+function showError(msg) {
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('err-detail').textContent=msg;
+  document.getElementById('error-screen').style.display='flex';
+}
+function showSaving(on) {
+  document.getElementById('saving-indicator').classList.toggle('show', on);
+}
+
+// ── JSONBin API ───────────────────────────────────────────────────────────
 async function createBin() {
-  const res = await fetch(`${BASE}/b`, { method:'POST', headers:{'Content-Type':'application/json','X-Master-Key':API_KEY,'X-Bin-Name':'worldle-scoreboard','X-Bin-Private':'false'}, body:JSON.stringify({players:[],scores:{}}) });
-  if (!res.ok) throw new Error('Could not create database: '+res.status);
-  const data = await res.json(); return data.metadata.id;
+  const res = await fetch(`${BASE}/b`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY, 'X-Bin-Name': 'worldle-scoreboard', 'X-Bin-Private': 'false' },
+    body: JSON.stringify({ players: [], scores: {} })
+  });
+  if (!res.ok) throw new Error('Could not create database: ' + res.status);
+  const data = await res.json();
+  return data.metadata.id;
 }
+
 async function readBin() {
-  const res = await fetch(`${BASE}/b/${binId}/latest`, { headers:{'X-Master-Key':API_KEY} });
-  if (!res.ok) throw new Error('Could not read database: '+res.status);
-  const data = await res.json(); return data.record;
+  const res = await fetch(`${BASE}/b/${binId}/latest`, {
+    headers: { 'X-Master-Key': API_KEY }
+  });
+  if (!res.ok) throw new Error('Could not read database: ' + res.status);
+  const data = await res.json();
+  return data.record;
 }
+
 async function writeBin(newState) {
-  const res = await fetch(`${BASE}/b/${binId}`, { method:'PUT', headers:{'Content-Type':'application/json','X-Master-Key':API_KEY}, body:JSON.stringify(newState) });
-  if (!res.ok) throw new Error('Could not save: '+res.status);
+  const res = await fetch(`${BASE}/b/${binId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': API_KEY },
+    body: JSON.stringify(newState)
+  });
+  if (!res.ok) throw new Error('Could not save: ' + res.status);
 }
-async function saveState() { showSaving(true); try { await writeBin(state); } catch(e) { alert('Save failed: '+e.message); } showSaving(false); }
+
+async function saveState() {
+  showSaving(true);
+  try { await writeBin(state); } catch(e) { alert('Save failed: ' + e.message); }
+  showSaving(false);
+}
+
+// Debounced save
+function queueSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveState, 500);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
 async function init() {
   try {
-    if (!binId) { binId = await createBin(); localStorage.setItem(BIN_ID_KEY, binId); state = {players:[],scores:{}}; }
-    else { state = await readBin(); if(!state.players) state.players=[]; if(!state.scores) state.scores={}; }
+    if (!binId) {
+      // First time — create a new bin
+      binId = await createBin();
+      localStorage.setItem(BIN_ID_KEY, binId);
+      state = { players: [], scores: {} };
+    } else {
+      state = await readBin();
+      if (!state.players) state.players = [];
+      if (!state.scores) state.scores = {};
+    }
     showApp();
-  } catch(e) { showError(e.message); }
+  } catch(e) {
+    showError(e.message);
+  }
 }
+
 init();
-window.showTab = function(name,btn) {
+
+// ── Tabs ──────────────────────────────────────────────────────────────────
+window.showTab = function(name, btn) {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active'); btn.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
   if(name==='leaderboard') renderLeaderboard();
   if(name==='enter') renderEntry();
   if(name==='history') renderHistory();
   if(name==='players') renderPlayers();
 }
-let parsedResult=null;
-window.parsePaste=function(){
-  const raw=document.getElementById('paste-input').value.trim();
-  const preview=document.getElementById('parsed-preview'),errEl=document.getElementById('parse-error');
-  const saveBtn=document.getElementById('save-paste-btn'),clearBtn=document.getElementById('clear-btn');
-  parsedResult=null; preview.classList.remove('show'); errEl.classList.remove('show');
+
+// ── Paste ─────────────────────────────────────────────────────────────────
+let parsedResult = null;
+window.parsePaste = function() {
+  const raw = document.getElementById('paste-input').value.trim();
+  const preview = document.getElementById('parsed-preview');
+  const errEl = document.getElementById('parse-error');
+  const saveBtn = document.getElementById('save-paste-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  parsedResult = null;
+  preview.classList.remove('show'); errEl.classList.remove('show');
   saveBtn.style.display='none'; clearBtn.style.display='none';
-  if(!raw) return; clearBtn.style.display='inline-block';
-  const m=raw.match(/#Worldle\s+#(\d+)\s+([\dX])\/6/i);
-  if(!m){errEl.textContent="Couldn't recognise this as a Worldle result."; errEl.classList.add('show'); return;}
-  const puzzleNum=parseInt(m[1]),guesses=m[2]==='X'?'X':m[2]+'/6';
-  const EPOCH=new Date('2022-01-22T12:00:00Z'),pd=new Date(EPOCH.getTime()+(puzzleNum-1)*86400000);
-  const dateStr=`${pd.getUTCFullYear()}-${pad(pd.getUTCMonth()+1)}-${pad(pd.getUTCDate())}`;
-  const dateLabel=pd.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',timeZone:'UTC'});
-  parsedResult={puzzleNum,guesses,dateStr};
-  document.getElementById('p-puzzle').textContent='#'+puzzleNum;
-  document.getElementById('p-score').innerHTML=`<span class="pill" style="background:${scoreColor(guesses)};font-size:14px;padding:3px 12px">${guesses}</span>`;
-  document.getElementById('p-date').textContent=dateLabel;
-  const existing=state.scores[dateStr]?.scores||{};
-  document.getElementById('p-players').innerHTML=state.players.map(p=>{
-    const id='chk-'+safeid(p),alreadyHas=!!existing[p];
+  if (!raw) return;
+  clearBtn.style.display='inline-block';
+  // Match puzzle number
+  const numMatch = raw.match(/#Worldle\s+#(\d+)/i);
+  if (!numMatch) { errEl.textContent="Couldn't recognise this as a Worldle result. Make sure to copy the full share text."; errEl.classList.add('show'); return; }
+  const puzzleNum = parseInt(numMatch[1]);
+
+  // Match score anywhere in text e.g. "X/6" or "3/6"
+  const scoreMatch = raw.match(/\(.*?\)\s*([\dX])\/6|\b([\dX])\/6\b/i);
+  if (!scoreMatch) { errEl.textContent="Found the puzzle but couldn't read the score."; errEl.classList.add('show'); return; }
+  const rawScore = (scoreMatch[1] || scoreMatch[2]).toUpperCase();
+  const guesses = rawScore === 'X' ? 'X' : rawScore + '/6';
+
+  // Try to parse date from result text (format: DD.MM.YYYY)
+  const dateTextMatch = raw.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  let dateStr, dateLabel;
+  if (dateTextMatch) {
+    dateStr = `${dateTextMatch[3]}-${dateTextMatch[2]}-${dateTextMatch[1]}`;
+    const dateObj = new Date(dateStr + 'T12:00:00');
+    dateLabel = dateObj.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  } else {
+    const EPOCH = new Date('2022-01-22T12:00:00Z');
+    const pd = new Date(EPOCH.getTime() + (puzzleNum-1)*86400000);
+    dateStr = `${pd.getUTCFullYear()}-${pad(pd.getUTCMonth()+1)}-${pad(pd.getUTCDate())}`;
+    dateLabel = pd.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',timeZone:'UTC'});
+  }
+  parsedResult = { puzzleNum, guesses, dateStr };
+  document.getElementById('p-puzzle').textContent = '#'+puzzleNum;
+  document.getElementById('p-score').innerHTML = `<span class="pill" style="background:${scoreColor(guesses)};font-size:14px;padding:3px 12px">${guesses}</span>`;
+  document.getElementById('p-date').textContent = dateLabel;
+  const existing = state.scores[dateStr]?.scores || {};
+  document.getElementById('p-players').innerHTML = state.players.map(p => {
+    const id='chk-'+safeid(p), alreadyHas=!!existing[p];
     return `<div class="pchip"><input type="checkbox" id="${id}" ${alreadyHas?'':'checked'}><label for="${id}">${p}${alreadyHas?` <span style="color:#555;font-size:11px">(${existing[p]})</span>`:''}</label></div>`;
   }).join('');
   preview.classList.add('show'); saveBtn.style.display='inline-block';
 }
-window.saveParsed=async function(){
-  if(!parsedResult) return;
-  const{puzzleNum,guesses,dateStr}=parsedResult;
-  if(!state.scores[dateStr]) state.scores[dateStr]={puzzle:puzzleNum,scores:{}};
-  state.scores[dateStr].puzzle=puzzleNum;
-  let count=0;
-  state.players.forEach(p=>{const chk=document.getElementById('chk-'+safeid(p));if(chk&&chk.checked){state.scores[dateStr].scores[p]=guesses;count++;}});
+window.saveParsed = async function() {
+  if (!parsedResult) return;
+  const { puzzleNum, guesses, dateStr } = parsedResult;
+  if (!state.scores[dateStr]) state.scores[dateStr] = { puzzle: puzzleNum, scores: {} };
+  state.scores[dateStr].puzzle = puzzleNum;
+  let count = 0;
+  state.players.forEach(p => {
+    const chk = document.getElementById('chk-'+safeid(p));
+    if (chk && chk.checked) { state.scores[dateStr].scores[p] = guesses; count++; }
+  });
   clearPaste();
-  const msg=document.getElementById('save-msg');
-  msg.textContent=`✓ Saved ${guesses} for ${count} player${count!==1?'s':''}!`;
+  const msg = document.getElementById('save-msg');
+  msg.textContent = `✓ Saved ${guesses} for ${count} player${count!==1?'s':''}!`;
   msg.classList.add('show'); setTimeout(()=>msg.classList.remove('show'),3000);
-  await saveState(); renderEntryTable();
+  await saveState();
+  renderEntryTable();
 }
-window.clearPaste=function(){
-  document.getElementById('paste-input').value=''; parsedResult=null;
+window.clearPaste = function() {
+  document.getElementById('paste-input').value = ''; parsedResult = null;
   document.getElementById('parsed-preview').classList.remove('show');
   document.getElementById('parse-error').classList.remove('show');
   document.getElementById('save-paste-btn').style.display='none';
   document.getElementById('clear-btn').style.display='none';
 }
-function renderEntry(){const el=document.getElementById('entry-date');if(!el.value)el.value=localToday();renderEntryTable();el.onchange=renderEntryTable;}
-function renderEntryTable(){
-  const date=document.getElementById('entry-date')?.value; if(!date) return;
-  document.getElementById('entry-body').innerHTML=state.players.map(p=>{
-    const existing=state.scores[date]?.scores?.[p];
-    const opts=SCORE_OPTIONS.map(o=>`<option value="${o}">${o}</option>`).join('');
+
+// ── Manual Entry ──────────────────────────────────────────────────────────
+function renderEntry() {
+  const el = document.getElementById('entry-date');
+  if (!el.value) el.value = localToday();
+  renderEntryTable(); el.onchange = renderEntryTable;
+}
+function renderEntryTable() {
+  const date = document.getElementById('entry-date')?.value; if (!date) return;
+  document.getElementById('entry-body').innerHTML = state.players.map(p => {
+    const existing = state.scores[date]?.scores?.[p];
+    const opts = SCORE_OPTIONS.map(o=>`<option value="${o}">${o}</option>`).join('');
     return `<tr><td class="pname">${p}</td><td><select id="msel-${safeid(p)}"><option value="">—</option>${opts}</select></td><td>${existing?`<span class="pill" style="background:${scoreColor(existing)}">${existing}</span>`:'<span style="color:#444;font-size:12px">none</span>'}</td></tr>`;
   }).join('');
 }
-window.submitManual=async function(){
-  const date=document.getElementById('entry-date').value; if(!date) return;
-  if(!state.scores[date]) state.scores[date]={scores:{}};
-  state.players.forEach(p=>{const sel=document.getElementById('msel-'+safeid(p));if(sel&&sel.value)state.scores[date].scores[p]=sel.value;});
-  await saveState(); renderEntryTable();
-  const msg=document.getElementById('save-msg-manual');
+window.submitManual = async function() {
+  const date = document.getElementById('entry-date').value; if (!date) return;
+  if (!state.scores[date]) state.scores[date] = { scores: {} };
+  state.players.forEach(p => {
+    const sel = document.getElementById('msel-'+safeid(p));
+    if (sel && sel.value) state.scores[date].scores[p] = sel.value;
+  });
+  await saveState();
+  renderEntryTable();
+  const msg = document.getElementById('save-msg-manual');
   msg.textContent='✓ Saved!'; msg.style.color='#86efac'; msg.style.fontSize='14px'; msg.style.opacity='1';
-  setTimeout(()=>{msg.style.opacity='0';},2500);
+  setTimeout(()=>{ msg.style.opacity='0'; },2500);
 }
-function calcStats(player){
-  const days=Object.entries(state.scores).filter(([,d])=>d.scores?.[player]);
-  const played=days.length,solved=days.filter(([,d])=>d.scores[player]!=='X').length;
-  const guesses=days.filter(([,d])=>d.scores[player]!=='X').map(([,d])=>scoreVal(d.scores[player]));
-  const avg=guesses.length?(guesses.reduce((a,b)=>a+b,0)/guesses.length).toFixed(2):null;
-  const best=guesses.length?Math.min(...guesses)+'/6':null;
-  let streak=0;
-  for(const d of Object.keys(state.scores).sort().reverse()){if(state.scores[d]?.scores?.[player]&&state.scores[d].scores[player]!=='X')streak++;else break;}
-  return{player,played,solved,avg,best,streak};
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+function calcStats(player) {
+  const days = Object.entries(state.scores).filter(([,d])=>d.scores?.[player]);
+  const played = days.length;
+  const solved = days.filter(([,d])=>d.scores[player]!=='X').length;
+  const guesses = days.filter(([,d])=>d.scores[player]!=='X').map(([,d])=>scoreVal(d.scores[player]));
+  const avg = guesses.length ? (guesses.reduce((a,b)=>a+b,0)/guesses.length).toFixed(2) : null;
+  const best = guesses.length ? Math.min(...guesses)+'/6' : null;
+  let streak = 0;
+  for (const d of Object.keys(state.scores).sort().reverse()) {
+    if (state.scores[d]?.scores?.[player] && state.scores[d].scores[player]!=='X') streak++; else break;
+  }
+  return { player, played, solved, avg, best, streak };
 }
-function getRanked(){return state.players.map(calcStats).sort((a,b)=>{if(!a.avg&&!b.avg)return 0;if(!a.avg)return 1;if(!b.avg)return -1;return parseFloat(a.avg)-parseFloat(b.avg);});}
-function renderLeaderboard(){
-  const ranked=getRanked();
-  document.getElementById('podium').innerHTML=ranked.slice(0,3).map((s,i)=>`<div class="podium-card ${i===0?'gold':''}"><div class="medal">${['🥇','🥈','🥉'][i]}</div><div class="podium-name">${s.player}</div><div class="podium-avg">${s.avg||'—'}</div><div class="podium-label">avg guesses</div></div>`).join('');
-  document.getElementById('leaderboard-body').innerHTML=ranked.map((s,i)=>`<tr><td class="rank-num">${i+1}</td><td class="pname">${s.player}</td><td class="center">${s.played}</td><td class="center">${s.solved}</td><td class="center avg-cell">${s.avg||'—'}</td><td class="center">${s.best?`<span class="pill" style="background:${scoreColor(s.best)}">${s.best}</span>`:'<span style="color:#555">—</span>'}</td><td class="center ${s.streak>0?'streak-cell':''}">${s.streak>0?`🔥 ${s.streak}`:'—'}</td></tr>`).join('');
+function getRanked() {
+  return state.players.map(calcStats).sort((a,b)=>{
+    if(!a.avg&&!b.avg) return 0; if(!a.avg) return 1; if(!b.avg) return -1;
+    return parseFloat(a.avg)-parseFloat(b.avg);
+  });
 }
-function renderHistory(){
-  const container=document.getElementById('history-container');
-  const sortedDates=Object.keys(state.scores).sort().reverse();
-  if(!sortedDates.length){container.innerHTML='<div class="empty">No scores entered yet.</div>';return;}
-  container.innerHTML=sortedDates.map(date=>{
-    const day=state.scores[date],ds=day.scores||{};
-    const chips=state.players.filter(p=>ds[p]).map(p=>`<div class="score-chip"><span style="font-size:13px">${p}</span><span class="pill" style="background:${scoreColor(ds[p])}">${ds[p]}</span><button class="del-btn" onclick="deleteEntry('${date}','${p.replace(/'/g,"\\'")}')">×</button></div>`).join('');
-    const label=new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+// ── Leaderboard ───────────────────────────────────────────────────────────
+function renderLeaderboard() {
+  const ranked = getRanked();
+  document.getElementById('podium').innerHTML = ranked.slice(0,3).map((s,i)=>`
+    <div class="podium-card ${i===0?'gold':''}">
+      <div class="medal">${['🥇','🥈','🥉'][i]}</div>
+      <div class="podium-name">${s.player}</div>
+      <div class="podium-avg">${s.avg||'—'}</div>
+      <div class="podium-label">avg guesses</div>
+    </div>`).join('');
+  document.getElementById('leaderboard-body').innerHTML = ranked.map((s,i)=>`
+    <tr>
+      <td class="rank-num">${i+1}</td><td class="pname">${s.player}</td>
+      <td class="center">${s.played}</td><td class="center">${s.solved}</td>
+      <td class="center avg-cell">${s.avg||'—'}</td>
+      <td class="center">${s.best?`<span class="pill" style="background:${scoreColor(s.best)}">${s.best}</span>`:'<span style="color:#555">—</span>'}</td>
+      <td class="center ${s.streak>0?'streak-cell':''}">${s.streak>0?`🔥 ${s.streak}`:'—'}</td>
+    </tr>`).join('');
+}
+
+// ── History ───────────────────────────────────────────────────────────────
+function renderHistory() {
+  const container = document.getElementById('history-container');
+  const sortedDates = Object.keys(state.scores).sort().reverse();
+  if (!sortedDates.length) { container.innerHTML='<div class="empty">No scores entered yet.</div>'; return; }
+  container.innerHTML = sortedDates.map(date => {
+    const day = state.scores[date], ds = day.scores||{};
+    const chips = state.players.filter(p=>ds[p]).map(p=>`
+      <div class="score-chip">
+        <span style="font-size:13px">${p}</span>
+        <span class="pill" style="background:${scoreColor(ds[p])}">${ds[p]}</span>
+        <button class="del-btn" onclick="deleteEntry('${date}','${p.replace(/'/g,"\\'")}')">×</button>
+      </div>`).join('');
+    const label = new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     return `<div class="card"><div class="day-header"><div class="day-title">${label}</div>${day.puzzle?`<div class="day-puzzle">Puzzle #${day.puzzle}</div>`:''}</div><div class="day-scores">${chips||'<span style="color:#555;font-size:13px">No scores</span>'}</div></div>`;
   }).join('');
 }
-window.deleteEntry=async function(date,player){
-  if(!state.scores[date]?.scores) return;
+window.deleteEntry = async function(date, player) {
+  if (!state.scores[date]?.scores) return;
   delete state.scores[date].scores[player];
-  if(Object.keys(state.scores[date].scores).length===0) delete state.scores[date];
-  await saveState(); renderHistory();
+  if (Object.keys(state.scores[date].scores).length===0) delete state.scores[date];
+  await saveState();
+  renderHistory();
 }
-function renderPlayers(){
-  document.getElementById('players-list').innerHTML=state.players.map(p=>`<div class="player-row"><span class="pname" style="font-size:15px">${p}</span><button class="btn btn-ghost btn-sm" onclick="removePlayer('${p.replace(/'/g,"\\'")}')">Remove</button></div>`).join('')||'<div style="padding:16px;color:#555;font-style:italic">No players yet.</div>';
+
+// ── Players ───────────────────────────────────────────────────────────────
+function renderPlayers() {
+  document.getElementById('players-list').innerHTML = state.players.map(p=>`
+    <div class="player-row">
+      <span class="pname" style="font-size:15px">${p}</span>
+      <button class="btn btn-ghost btn-sm" onclick="removePlayer('${p.replace(/'/g,"\\'")}')">Remove</button>
+    </div>`).join('') || '<div style="padding:16px;color:#555;font-style:italic">No players yet.</div>';
 }
-window.addPlayer=async function(){
-  const input=document.getElementById('new-player'),name=input.value.trim();
-  if(!name||state.players.includes(name)) return;
-  state.players.push(name); await saveState(); input.value=''; renderPlayers();
+window.addPlayer = async function() {
+  const input = document.getElementById('new-player');
+  const name = input.value.trim();
+  if (!name || state.players.includes(name)) return;
+  state.players.push(name);
+  await saveState();
+  input.value=''; renderPlayers();
 }
-window.removePlayer=async function(name){
-  state.players=state.players.filter(p=>p!==name); await saveState(); renderPlayers();
+window.removePlayer = async function(name) {
+  state.players = state.players.filter(p=>p!==name);
+  await saveState();
+  renderPlayers();
 }
 </script>
 </body>
