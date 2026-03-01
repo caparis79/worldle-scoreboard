@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌍 Worldle Scoreboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Serif+4:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1117; min-height: 100vh; font-family: 'Source Serif 4', Georgia, serif; color: #e8e0d0; }
+  #loading-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+  .spinner { width: 36px; height: 36px; border: 3px solid #2a2d3e; border-top-color: #e8d5a0; border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #error-screen { min-height: 100vh; display: none; align-items: center; justify-content: center; flex-direction: column; padding: 30px; text-align: center; }
+  .err-box { background: #1a1d2e; border: 1px solid #3a3a4a; border-radius: 12px; padding: 32px; max-width: 480px; width: 100%; }
+  .err-title { font-family: 'Playfair Display', serif; color: #ef4444; font-size: 22px; margin-bottom: 12px; }
+  .err-msg { color: #888; font-size: 14px; line-height: 1.7; margin-bottom: 20px; }
+  .err-detail { background: #0f1117; border-radius: 8px; padding: 10px 14px; font-family: monospace; font-size: 12px; color: #ef4444; word-break: break-all; margin-bottom: 20px; text-align: left; }
+  #app { display: none; }
+  header { background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 60%); border-bottom: 1px solid #2a2d3e; padding: 24px 20px 0; }
+  .header-inner { max-width: 960px; margin: 0 auto; }
+  .title-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+  h1 { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; color: #e8d5a0; letter-spacing: -0.02em; }
+  .subtitle { font-style: italic; color: #666; font-size: 15px; }
+  .tagline { color: #555; font-size: 12px; margin: 4px 0 16px; font-style: italic; }
+  .live-dot { display: inline-block; width: 7px; height: 7px; background: #22c55e; border-radius: 50%; margin-right: 4px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .live-badge { font-size: 10px; color: #22c55e; text-transform: uppercase; letter-spacing: 0.1em; }
+  .tabs { display: flex; overflow-x: auto; }
+  .tab { background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-family: 'Playfair Display', serif; font-size: 14px; padding: 8px 16px; color: #888; white-space: nowrap; transition: color 0.2s, border-color 0.2s; }
+  .tab.active { color: #e8d5a0; border-bottom: 2px solid #e8d5a0; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: #1a1d2e; border: 1px solid #2a2d3e; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { padding: 12px 14px; text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #555; font-weight: normal; border-bottom: 1px solid #2a2d3e; }
+  th.center, td.center { text-align: center; }
+  tbody tr { border-bottom: 1px solid #1e2130; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 12px 14px; font-size: 14px; }
+  .podium { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .podium-card { background: #1a1d2e; border: 1px solid #2a2d3e; border-radius: 12px; padding: 16px; text-align: center; }
+  .podium-card.gold { border-color: #e8d5a0; }
+  .medal { font-size: 22px; }
+  .podium-name { font-family: 'Playfair Display', serif; font-size: 16px; margin-top: 6px; }
+  .podium-avg { font-family: 'Playfair Display', serif; font-size: 28px; color: #e8d5a0; }
+  .podium-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-top: 2px; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; color: #fff; }
+  .pname { font-family: 'Playfair Display', serif; }
+  .avg-cell { font-family: 'Playfair Display', serif; font-size: 16px; color: #e8d5a0; }
+  .rank-num { color: #555; font-size: 12px; }
+  .streak-cell { color: #f97316; }
+  .btn { cursor: pointer; border: none; border-radius: 6px; padding: 8px 18px; font-family: 'Source Serif 4', Georgia, serif; font-size: 14px; transition: all 0.2s; }
+  .btn-gold { background: #e8d5a0; color: #0f1117; font-weight: bold; }
+  .btn-gold:hover { background: #f0e0b0; }
+  .btn-ghost { background: transparent; color: #888; border: 1px solid #3a3a4a; }
+  .btn-sm { padding: 4px 12px; font-size: 13px; }
+  input[type=date], input[type=text] { background: #1a1d2e; color: #e8e0d0; border: 1px solid #3a3a4a; border-radius: 6px; padding: 8px 12px; font-family: 'Source Serif 4', Georgia, serif; font-size: 14px; outline: none; width: 100%; }
+  input:focus { border-color: #6d9ee8; }
+  select { background: #1a1d2e; color: #e8e0d0; border: 1px solid #3a3a4a; border-radius: 6px; padding: 6px 8px; font-family: 'Source Serif 4', Georgia, serif; cursor: pointer; font-size: 13px; }
+  .paste-label { font-family: 'Playfair Display', serif; font-size: 20px; color: #e8d5a0; display: block; margin-bottom: 8px; }
+  .paste-hint { font-size: 12px; color: #555; font-style: italic; margin-bottom: 12px; line-height: 1.7; }
+  textarea { width: 100%; background: #1a1d2e; border: 2px dashed #3a3a4a; border-radius: 10px; color: #e8e0d0; font-family: 'Source Serif 4', Georgia, serif; font-size: 14px; padding: 14px; resize: vertical; min-height: 100px; outline: none; transition: border-color 0.2s; line-height: 1.6; margin-bottom: 12px; }
+  textarea:focus { border-color: #6d9ee8; border-style: solid; }
+  textarea::placeholder { color: #444; }
+  .parsed-preview { background: #0f1117; border: 1px solid #2a2d3e; border-radius: 10px; padding: 16px; margin-bottom: 14px; display: none; }
+  .parsed-preview.show { display: block; }
+  .prow { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+  .prow:last-child { margin-bottom: 0; }
+  .pkey { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 0.1em; width: 68px; flex-shrink: 0; padding-top: 3px; }
+  .pval { font-family: 'Playfair Display', serif; font-size: 17px; }
+  .player-checks { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pchip { display: flex; align-items: center; gap: 8px; background: #1a1d2e; border: 1px solid #2a2d3e; border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .pchip input[type=checkbox] { accent-color: #e8d5a0; cursor: pointer; width: 15px; height: 15px; }
+  .pchip label { cursor: pointer; font-size: 14px; }
+  .parse-error { color: #ef4444; font-size: 13px; margin-bottom: 12px; display: none; background: rgba(239,68,68,0.1); border-radius: 8px; padding: 10px 14px; border: 1px solid rgba(239,68,68,0.3); }
+  .parse-error.show { display: block; }
+  .action-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .save-msg { font-size: 14px; opacity: 0; transition: opacity 0.3s; color: #86efac; }
+  .save-msg.show { opacity: 1; }
+  .divider { display: flex; align-items: center; gap: 14px; margin: 24px 0; }
+  .divider-line { flex: 1; height: 1px; background: #2a2d3e; }
+  .divider-text { color: #444; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .day-header { padding: 12px 16px; border-bottom: 1px solid #2a2d3e; }
+  .day-title { font-family: 'Playfair Display', serif; color: #e8d5a0; font-size: 15px; }
+  .day-puzzle { font-size: 11px; color: #555; margin-top: 2px; }
+  .day-scores { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 16px; }
+  .score-chip { display: flex; align-items: center; gap: 8px; background: #0f1117; border-radius: 8px; padding: 7px 12px; }
+  .del-btn { background: none; border: none; color: #444; cursor: pointer; font-size: 18px; line-height: 1; padding: 0; }
+  .empty { text-align: center; color: #555; padding: 50px 0; font-style: italic; }
+  .players-intro { color: #888; font-size: 13px; margin-bottom: 20px; font-style: italic; }
+  .player-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #1e2130; }
+  .player-row:last-child { border-bottom: none; }
+  .add-row { display: flex; gap: 10px; margin-top: 14px; }
+  .add-row input { flex: 1; }
+  .hint { color: #555; font-size: 12px; margin-top: 10px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div style="font-size:36px">🌍</div>
+  <div class="spinner"></div>
+  <div style="color:#555;font-size:14px;font-style:italic">Connecting to scoreboard…</div>
+</div>
+
+<div id="error-screen">
+  <div class="err-box">
+    <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+    <div class="err-title">Couldn't connect</div>
+    <div class="err-msg">There was a problem connecting to Firebase. See the error below.</div>
+    <div class="err-detail" id="err-detail"></div>
+    <button class="btn btn-gold" style="width:100%" onclick="location.reload()">Try again</button>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="header-inner">
+      <div class="title-row">
+        <span style="font-size:26px">🌍</span>
+        <h1>Worldle</h1>
+        <span class="subtitle">scoreboard</span>
+        <span class="live-badge"><span class="live-dot"></span>live</span>
+      </div>
+      <p class="tagline">Track your group's daily geography guesses</p>
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('leaderboard',this)">Leaderboard</button>
+        <button class="tab" onclick="showTab('enter',this)">Enter Scores</button>
+        <button class="tab" onclick="showTab('history',this)">History</button>
+        <button class="tab" onclick="showTab('players',this)">Players</button>
+      </div>
+    </div>
+  </header>
+  <main>
+    <div id="tab-leaderboard" class="panel active">
+      <div class="podium" id="podium"></div>
+      <div class="card">
+        <table>
+          <thead><tr><th>#</th><th>Player</th><th class="center">Played</th><th class="center">Solved</th><th class="center">Avg</th><th class="center">Best</th><th class="center">Streak</th></tr></thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="tab-enter" class="panel">
+      <span class="paste-label">Paste a result</span>
+      <p class="paste-hint">After finishing Worldle tap <strong style="color:#aaa">Share</strong> and paste below.<br>Works with formats like:<br>
+        <span style="font-family:monospace;color:#777">#Worldle #1492 (21.02.2026) X/6</span><br>
+        <span style="font-family:monospace;color:#777">#Worldle #834 3/6 (100%)</span>
+      </p>
+      <textarea id="paste-input" placeholder="Paste Worldle result here…" oninput="parsePaste()"></textarea>
+      <div class="parse-error" id="parse-error"></div>
+      <div class="parsed-preview" id="parsed-preview">
+        <div class="prow"><span class="pkey">Puzzle</span><span class="pval" id="p-puzzle"></span></div>
+        <div class="prow"><span class="pkey">Score</span><span id="p-score"></span></div>
+        <div class="prow"><span class="pkey">Date</span><span class="pval" id="p-date" style="font-size:14px"></span></div>
+        <div class="prow"><span class="pkey">Assign to</span><div class="player-checks" id="p-players"></div></div>
+      </div>
+      <div class="action-row" style="margin-bottom:8px">
+        <button class="btn btn-gold" id="save-paste-btn" onclick="saveParsed()" style="display:none">Save Score</button>
+        <button class="btn btn-ghost" id="clear-btn" onclick="clearPaste()" style="display:none">Clear</button>
+        <span class="save-msg" id="save-msg"></span>
+      </div>
+
+      <div class="divider"><div class="divider-line"></div><span class="divider-text">or enter manually</span><div class="divider-line"></div></div>
+
+      <div style="margin-bottom:16px">
+        <label style="color:#888;font-size:13px;display:block;margin-bottom:8px">Date:</label>
+        <input type="date" id="entry-date" style="max-width:200px">
+      </div>
+      <div class="card">
+        <table><thead><tr><th>Player</th><th>Score</th><th>Saved</th></tr></thead><tbody id="entry-body"></tbody></table>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <button class="btn btn-gold" onclick="submitManual()">Save Scores</button>
+        <span class="save-msg" id="save-msg-manual"></span>
+      </div>
+      <p class="hint">Entering a score overwrites any existing score for that date.</p>
+    </div>
+
+    <div id="tab-history" class="panel"><div id="history-container"></div></div>
+
+    <div id="tab-players" class="panel">
+      <p class="players-intro">Add or remove players. Changes sync instantly for everyone.</p>
+      <div class="card" style="max-width:400px" id="players-list"></div>
+      <div class="add-row" style="max-width:400px">
+        <input type="text" id="new-player" placeholder="New player name" onkeydown="if(event.key==='Enter') addPlayer()">
+        <button class="btn btn-gold" onclick="addPlayer()">Add</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCgN4bNBYpvitFyp9aggcWsoyPgBcrSU78",
+  authDomain: "worldle-scoreboard.firebaseapp.com",
+  databaseURL: "https://worldle-scoreboard-default-rtdb.firebaseio.com",
+  projectId: "worldle-scoreboard",
+  storageBucket: "worldle-scoreboard.firebasestorage.app",
+  messagingSenderId: "958526404310",
+  appId: "1:958526404310:web:ec1f48cbef2ce352b6bb77"
+};
+
+let players = [];
+let scores = {};
+
+const SCORE_OPTIONS = ["1/6","2/6","3/6","4/6","5/6","6/6","X"];
+function scoreVal(s) { return s==="X"?7:parseInt(s); }
+function scoreColor(s) { return {"1/6":"#22c55e","2/6":"#86efac","3/6":"#fbbf24","4/6":"#f97316","5/6":"#ef4444","6/6":"#dc2626","X":"#6b7280"}[s]||"#444"; }
+function pad(n) { return String(n).padStart(2,'0'); }
+function localToday() { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function safeid(s) { return s.replace(/[^a-zA-Z0-9]/g,'_'); }
+
+function showApp() {
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('app').style.display='block';
+}
+function showError(msg) {
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('err-detail').textContent=msg;
+  document.getElementById('error-screen').style.display='flex';
+}
+
+let app, db;
+try {
+  app = initializeApp(firebaseConfig);
+  db = getDatabase(app);
+} catch(e) {
+  showError('Firebase init failed: ' + e.message);
+}
+
+// Timeout after 10 seconds
+const connTimeout = setTimeout(() => {
+  showError('Connection timed out. Please check your internet connection and try again.');
+}, 10000);
+
+let playersLoaded = false;
+let scoresLoaded = false;
+
+function checkReady() {
+  if (playersLoaded && scoresLoaded) {
+    clearTimeout(connTimeout);
+    showApp();
+    renderLeaderboard();
+  }
+}
+
+onValue(ref(db, 'players'), snap => {
+  players = snap.val() ? Object.values(snap.val()) : [];
+  playersLoaded = true;
+  checkReady();
+  refreshUI();
+}, err => { clearTimeout(connTimeout); showError(err.message); });
+
+onValue(ref(db, 'scores'), snap => {
+  scores = snap.val() || {};
+  scoresLoaded = true;
+  checkReady();
+  refreshUI();
+}, err => { clearTimeout(connTimeout); showError(err.message); });
+
+function refreshUI() {
+  if (!playersLoaded || !scoresLoaded) return;
+  const active = document.querySelector('.panel.active');
+  if (!active) return;
+  const id = active.id;
+  if (id==='tab-leaderboard') renderLeaderboard();
+  if (id==='tab-enter') renderEntryTable();
+  if (id==='tab-history') renderHistory();
+  if (id==='tab-players') renderPlayers();
+}
+
+async function fbSetPlayers(p) {
+  const obj={}; p.forEach((n,i)=>obj[i]=n);
+  await set(ref(db,'players'),obj);
+}
+async function fbSetDayScore(date,data) { await set(ref(db,`scores/${date}`),data); }
+async function fbDeletePlayerScore(date,player) {
+  const day=scores[date]; if(!day) return;
+  const nd=JSON.parse(JSON.stringify(day));
+  delete nd.scores[player];
+  if(Object.keys(nd.scores).length===0) await remove(ref(db,`scores/${date}`));
+  else await set(ref(db,`scores/${date}`),nd);
+}
+
+window.showTab = function(name,btn) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='leaderboard') renderLeaderboard();
+  if(name==='enter') renderEntry();
+  if(name==='history') renderHistory();
+  if(name==='players') renderPlayers();
+}
+
+// ── Paste Parser ──────────────────────────────────────────────────────────
+let parsedResult = null;
+window.parsePaste = function() {
+  const raw = document.getElementById('paste-input').value.trim();
+  const preview = document.getElementById('parsed-preview');
+  const errEl = document.getElementById('parse-error');
+  const saveBtn = document.getElementById('save-paste-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  parsedResult = null;
+  preview.classList.remove('show'); errEl.classList.remove('show');
+  saveBtn.style.display='none'; clearBtn.style.display='none';
+  if (!raw) return;
+  clearBtn.style.display='inline-block';
+
+  // Match puzzle number
+  const numMatch = raw.match(/#Worldle\s+#(\d+)/i);
+  if (!numMatch) { errEl.textContent="Couldn't recognise this as a Worldle result. Make sure to copy the full share text."; errEl.classList.add('show'); return; }
+  const puzzleNum = parseInt(numMatch[1]);
+
+  // Match score - handles X/6 or 3/6 anywhere in text
+  const scoreMatch = raw.match(/\b([1-6X])\/6\b/i);
+  if (!scoreMatch) { errEl.textContent="Found the puzzle number but couldn't read the score."; errEl.classList.add('show'); return; }
+  const guesses = scoreMatch[1].toUpperCase()==='X' ? 'X' : scoreMatch[1]+'/6';
+
+  // Try to parse date from DD.MM.YYYY format in the result
+  const dateTextMatch = raw.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  let dateStr, dateLabel;
+  if (dateTextMatch) {
+    dateStr = `${dateTextMatch[3]}-${dateTextMatch[2]}-${dateTextMatch[1]}`;
+    const dateObj = new Date(dateStr+'T12:00:00');
+    dateLabel = dateObj.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  } else {
+    // Fall back to calculating from puzzle number
+    const EPOCH = new Date('2022-01-22T12:00:00Z');
+    const pd = new Date(EPOCH.getTime()+(puzzleNum-1)*86400000);
+    dateStr = `${pd.getUTCFullYear()}-${pad(pd.getUTCMonth()+1)}-${pad(pd.getUTCDate())}`;
+    dateLabel = pd.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',timeZone:'UTC'});
+  }
+
+  parsedResult = { puzzleNum, guesses, dateStr };
+  document.getElementById('p-puzzle').textContent = '#'+puzzleNum;
+  document.getElementById('p-score').innerHTML = `<span class="pill" style="background:${scoreColor(guesses)};font-size:14px;padding:3px 12px">${guesses}</span>`;
+  document.getElementById('p-date').textContent = dateLabel;
+  const existing = scores[dateStr]?.scores || {};
+  document.getElementById('p-players').innerHTML = players.map(p => {
+    const id='chk-'+safeid(p), alreadyHas=!!existing[p];
+    return `<div class="pchip"><input type="checkbox" id="${id}" ${alreadyHas?'':'checked'}><label for="${id}">${p}${alreadyHas?` <span style="color:#555;font-size:11px">(${existing[p]})</span>`:''}</label></div>`;
+  }).join('');
+  preview.classList.add('show'); saveBtn.style.display='inline-block';
+}
+
+window.saveParsed = async function() {
+  if (!parsedResult) return;
+  const { puzzleNum, guesses, dateStr } = parsedResult;
+  const existing = scores[dateStr] || { puzzle: puzzleNum, scores: {} };
+  const newDay = { puzzle: puzzleNum, scores: { ...(existing.scores||{}) } };
+  let count = 0;
+  players.forEach(p => {
+    const chk = document.getElementById('chk-'+safeid(p));
+    if (chk && chk.checked) { newDay.scores[p] = guesses; count++; }
+  });
+  await fbSetDayScore(dateStr, newDay);
+  clearPaste();
+  const msg = document.getElementById('save-msg');
+  msg.textContent = `✓ Saved ${guesses} for ${count} player${count!==1?'s':''}!`;
+  msg.classList.add('show'); setTimeout(()=>msg.classList.remove('show'),3000);
+}
+
+window.clearPaste = function() {
+  document.getElementById('paste-input').value=''; parsedResult=null;
+  document.getElementById('parsed-preview').classList.remove('show');
+  document.getElementById('parse-error').classList.remove('show');
+  document.getElementById('save-paste-btn').style.display='none';
+  document.getElementById('clear-btn').style.display='none';
+}
+
+// ── Manual Entry ──────────────────────────────────────────────────────────
+function renderEntry() {
+  const el = document.getElementById('entry-date');
+  if (!el.value) el.value = localToday();
+  renderEntryTable(); el.onchange = renderEntryTable;
+}
+function renderEntryTable() {
+  const date = document.getElementById('entry-date')?.value; if (!date) return;
+  document.getElementById('entry-body').innerHTML = players.map(p => {
+    const existing = scores[date]?.scores?.[p];
+    const opts = SCORE_OPTIONS.map(o=>`<option value="${o}">${o}</option>`).join('');
+    return `<tr><td class="pname">${p}</td><td><select id="msel-${safeid(p)}"><option value="">—</option>${opts}</select></td><td>${existing?`<span class="pill" style="background:${scoreColor(existing)}">${existing}</span>`:'<span style="color:#444;font-size:12px">none</span>'}</td></tr>`;
+  }).join('');
+}
+window.submitManual = async function() {
+  const date = document.getElementById('entry-date').value; if (!date) return;
+  const existing = scores[date] || { scores: {} };
+  const newDay = { puzzle: existing.puzzle||null, scores: { ...(existing.scores||{}) } };
+  players.forEach(p => {
+    const sel = document.getElementById('msel-'+safeid(p));
+    if (sel && sel.value) newDay.scores[p] = sel.value;
+  });
+  await fbSetDayScore(date, newDay);
+  const msg = document.getElementById('save-msg-manual');
+  msg.textContent='✓ Saved!'; msg.style.color='#86efac'; msg.style.fontSize='14px'; msg.style.opacity='1';
+  setTimeout(()=>{ msg.style.opacity='0'; },2500);
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+function calcStats(player) {
+  const days = Object.entries(scores).filter(([,d])=>d.scores?.[player]);
+  const played = days.length;
+  const solved = days.filter(([,d])=>d.scores[player]!=='X').length;
+  const guesses = days.filter(([,d])=>d.scores[player]!=='X').map(([,d])=>scoreVal(d.scores[player]));
+  const avg = guesses.length?(guesses.reduce((a,b)=>a+b,0)/guesses.length).toFixed(2):null;
+  const best = guesses.length?Math.min(...guesses)+'/6':null;
+  let streak=0;
+  for (const d of Object.keys(scores).sort().reverse()) {
+    if(scores[d]?.scores?.[player]&&scores[d].scores[player]!=='X') streak++; else break;
+  }
+  return { player, played, solved, avg, best, streak };
+}
+function getRanked() {
+  return players.map(calcStats).sort((a,b)=>{
+    if(!a.avg&&!b.avg) return 0; if(!a.avg) return 1; if(!b.avg) return -1;
+    return parseFloat(a.avg)-parseFloat(b.avg);
+  });
+}
+
+// ── Leaderboard ───────────────────────────────────────────────────────────
+function renderLeaderboard() {
+  const ranked = getRanked();
+  document.getElementById('podium').innerHTML = ranked.slice(0,3).map((s,i)=>`
+    <div class="podium-card ${i===0?'gold':''}">
+      <div class="medal">${['🥇','🥈','🥉'][i]}</div>
+      <div class="podium-name">${s.player}</div>
+      <div class="podium-avg">${s.avg||'—'}</div>
+      <div class="podium-label">avg guesses</div>
+    </div>`).join('');
+  document.getElementById('leaderboard-body').innerHTML = ranked.map((s,i)=>`
+    <tr>
+      <td class="rank-num">${i+1}</td><td class="pname">${s.player}</td>
+      <td class="center">${s.played}</td><td class="center">${s.solved}</td>
+      <td class="center avg-cell">${s.avg||'—'}</td>
+      <td class="center">${s.best?`<span class="pill" style="background:${scoreColor(s.best)}">${s.best}</span>`:'<span style="color:#555">—</span>'}</td>
+      <td class="center ${s.streak>0?'streak-cell':''}">${s.streak>0?`🔥 ${s.streak}`:'—'}</td>
+    </tr>`).join('');
+}
+
+// ── History ───────────────────────────────────────────────────────────────
+function renderHistory() {
+  const container = document.getElementById('history-container');
+  const sortedDates = Object.keys(scores).sort().reverse();
+  if (!sortedDates.length) { container.innerHTML='<div class="empty">No scores entered yet.</div>'; return; }
+  container.innerHTML = sortedDates.map(date => {
+    const day=scores[date], ds=day.scores||{};
+    const chips = players.filter(p=>ds[p]).map(p=>`
+      <div class="score-chip">
+        <span style="font-size:13px">${p}</span>
+        <span class="pill" style="background:${scoreColor(ds[p])}">${ds[p]}</span>
+        <button class="del-btn" onclick="deleteEntry('${date}','${p.replace(/'/g,"\\'")}')">×</button>
+      </div>`).join('');
+    const label = new Date(date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    return `<div class="card"><div class="day-header"><div class="day-title">${label}</div>${day.puzzle?`<div class="day-puzzle">Puzzle #${day.puzzle}</div>`:''}</div><div class="day-scores">${chips||'<span style="color:#555;font-size:13px">No scores</span>'}</div></div>`;
+  }).join('');
+}
+window.deleteEntry = async function(date,player) { await fbDeletePlayerScore(date,player); }
+
+// ── Players ───────────────────────────────────────────────────────────────
+function renderPlayers() {
+  document.getElementById('players-list').innerHTML = players.map(p=>`
+    <div class="player-row">
+      <span class="pname" style="font-size:15px">${p}</span>
+      <button class="btn btn-ghost btn-sm" onclick="removePlayer('${p.replace(/'/g,"\\'")}')">Remove</button>
+    </div>`).join('') || '<div style="padding:16px;color:#555;font-style:italic">No players yet.</div>';
+}
+window.addPlayer = async function() {
+  const input = document.getElementById('new-player');
+  const name = input.value.trim();
+  if (!name||players.includes(name)) return;
+  await fbSetPlayers([...players, name]);
+  input.value='';
+}
+window.removePlayer = async function(name) {
+  await fbSetPlayers(players.filter(p=>p!==name));
+}
+</script>
+</body>
+</html>
